@@ -67,6 +67,6 @@ def run_pipeline(image_path, name):
 
 if __name__ == "__main__":
     # RUN ALL THREE IMAGES
-    run_pipeline("cameraman.tif", "cameraman")
+    run_pipeline("lena.tif", "lena")
     run_pipeline("baboon.png", "baboon")
     run_pipeline("real.png", "real")
