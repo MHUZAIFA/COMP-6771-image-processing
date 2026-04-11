@@ -1,0 +1,39 @@
+.DS_Store
+__pycache__/
+*.py[cod]
+*.pyo
+*.pyd
+*.so
+*.dylib
+*.egg-info/
+.eggs/
+*.sqlite3
+*.log
+*.aux
+*.out
+*.toc
+*.idx
+*.gz
+*.zip
+*.tar
+*.tgz
+*.pickle
+*.npy
+*.npz
+
+# Virtual environments
+venv/
+env/
+.venv/
+
+# Jupyter Notebook checkpoints
+.ipynb_checkpoints/
+
+# VS Code settings
+.vscode/
+
+# Output images / results
+*_original.png
+*_noisy.png
+*_nlmeans.png
+*_gaussian.png
