@@ -1,0 +1,233 @@
+import numpy as np
+import cv2
+import math
+import matplotlib.pyplot as plt
+from tqdm import tqdm
+
+def load_lena():
+    image = cv2.imread("lena.tif", cv2.IMREAD_GRAYSCALE)
+    return image.astype(np.float32)
+
+def add_gaussian_noise(image, sigma):
+    noise = np.random.normal(0, sigma, image.shape)
+    return np.clip(image + noise, 0, 255)
+
+def compute_mse(a, b):
+    return np.mean((a - b) ** 2)
+
+def compute_psnr(a, b):
+    m = compute_mse(a, b)
+    if m == 0:
+        return 100
+    return 10 * math.log10((255**2) / m)
+
+def create_gaussian_kernel(size, sigma):
+    ax = np.linspace(-(size//2), size//2, size)
+    xx, yy = np.meshgrid(ax, ax)
+    k = np.exp(-(xx**2 + yy**2) / (2 * sigma * sigma))
+    return k / np.sum(k)
+
+def non_local_means_denoising(image, patch_size, search_window, h, sigma):
+    # core NLM: patch comparison + weighted averaging
+    half_patch = patch_size // 2
+    half_search = search_window // 2
+    padding = half_patch + half_search
+
+    padded = np.pad(image, padding, mode='reflect')
+    G = create_gaussian_kernel(patch_size, sigma)
+
+    H, W = image.shape
+    output = np.zeros_like(image)
+
+    for i in tqdm(range(H)):
+        for j in range(W):
+            ip = i + padding
+            jp = j + padding
+
+            ref = padded[ip-half_patch:ip+half_patch+1,
+                         jp-half_patch:jp+half_patch+1]
+
+            w_sum = 0.0
+            p_sum = 0.0
+
+            for dx in range(-half_search, half_search+1):
+                for dy in range(-half_search, half_search+1):
+
+                    nx = ip + dx
+                    ny = jp + dy
+
+                    neigh = padded[nx-half_patch:nx+half_patch+1,
+                                   ny-half_patch:ny+half_patch+1]
+
+                    dist = np.sum(G * (ref - neigh) ** 2)
+                    w = np.exp(-dist / (h * h))
+
+                    w_sum += w
+                    p_sum += w * padded[nx, ny]
+
+            output[i, j] = p_sum / w_sum
+
+    return output
+
+def apply_gaussian_blur(image):
+    return cv2.GaussianBlur(image, (7,7), 1.5)
+
+def apply_median_filter(image):
+    return cv2.medianBlur(image.astype(np.uint8), 7)
+
+def apply_bilateral_filter(image):
+    return cv2.bilateralFilter(image.astype(np.uint8), 9, 75, 75)
+
+def apply_total_variation_denoising(image, weight=0.1, iterations=50):
+    result = image.copy()
+    for _ in range(iterations):
+        dx = np.roll(result, -1, axis=1) - result
+        dy = np.roll(result, -1, axis=0) - result
+
+        mag = np.sqrt(dx**2 + dy**2 + 1e-8)
+        dx /= mag
+        dy /= mag
+
+        div = (np.roll(dx, 1, axis=1) - dx +
+               np.roll(dy, 1, axis=0) - dy)
+
+        result += weight * div
+
+    return np.clip(result, 0, 255)
+
+def show(img, title):
+    plt.imshow(img, cmap='gray')
+    plt.title(title)
+    plt.axis('off')
+
+def generate_figure_3(image):
+    noisy = add_gaussian_noise(image, 35)
+
+    gauss = apply_gaussian_blur(noisy)
+    bilateral = apply_bilateral_filter(noisy)
+    tv = apply_total_variation_denoising(noisy)
+    nlm = non_local_means_denoising(noisy, 7, 21, 35, 1)
+
+    plt.figure(figsize=(15,5))
+    imgs = [noisy, gauss, bilateral, tv, nlm]
+    titles = ["Noisy", "Gaussian", "Bilateral", "TV", "NLM"]
+
+    for i in range(5):
+        plt.subplot(1,5,i+1)
+        show(imgs[i], titles[i])
+
+    plt.savefig("figure3.png")
+    plt.close()
+
+def generate_figure_4(image):
+    noisy = add_gaussian_noise(image, 20)
+
+    gauss = apply_gaussian_blur(noisy)
+    bilateral = apply_bilateral_filter(noisy)
+    tv = apply_total_variation_denoising(noisy)
+    nlm = non_local_means_denoising(noisy, 7, 21, 20, 1)
+
+    imgs = [
+        image,
+        image - gauss,
+        image - bilateral,
+        image - tv,
+        image - nlm
+    ]
+
+    titles = ["Original", "Gaussian", "Bilateral", "TV", "NLM"]
+
+    plt.figure(figsize=(12,8))
+    for i in range(5):
+        plt.subplot(2,3,i+1)
+        show(imgs[i], titles[i])
+
+    plt.savefig("figure4.png")
+    plt.close()
+
+def generate_figure_5(image):
+    noisy = add_gaussian_noise(image, 20)
+
+    gauss = apply_gaussian_blur(noisy)
+    bilateral = apply_bilateral_filter(noisy)
+    tv = apply_total_variation_denoising(noisy)
+    nlm = non_local_means_denoising(noisy, 7, 21, 20, 1)
+
+    imgs = [noisy, gauss, bilateral, tv, nlm]
+    titles = ["Noisy", "Gaussian", "Bilateral", "TV", "NLM"]
+
+    plt.figure(figsize=(12,8))
+    for i in range(5):
+        plt.subplot(2,3,i+1)
+        show(imgs[i], titles[i])
+
+    plt.savefig("figure5.png")
+    plt.close()
+
+def perform_parameter_study(image):
+    noisy = add_gaussian_noise(image, 20)
+
+    patch_sizes = [5,7,9]
+    h_values = [10,20,30]
+
+    results = []
+
+    for p in patch_sizes:
+        for h in h_values:
+            out = non_local_means_denoising(noisy, p, 21, h, 1)
+            results.append((p, h, compute_psnr(image, out)))
+
+    return results
+
+def plot_psnr_vs_h(results):
+    plt.figure()
+    patch_sizes = sorted(set([r[0] for r in results]))
+
+    for p in patch_sizes:
+        x = [r[1] for r in results if r[0] == p]
+        y = [r[2] for r in results if r[0] == p]
+        plt.plot(x, y, marker='o', label=f'Patch {p}')
+
+    plt.xlabel("h")
+    plt.ylabel("PSNR")
+    plt.legend()
+    plt.grid()
+    plt.savefig("psnr_vs_h.png")
+    plt.close()
+
+def generate_parameter_grid(image):
+    noisy = add_gaussian_noise(image, 20)
+
+    patch_sizes = [5,7,9]
+    h_values = [10,20,30]
+
+    plt.figure(figsize=(12,10))
+    idx = 1
+
+    for p in patch_sizes:
+        for h in h_values:
+            out = non_local_means_denoising(noisy, p, 21, h, 1)
+            plt.subplot(3,3,idx)
+            plt.imshow(out, cmap='gray')
+            plt.title(f'p={p}, h={h}')
+            plt.axis('off')
+            idx += 1
+
+    plt.savefig("parameter_grid.png")
+    plt.close()
+
+def main():
+    image = load_lena()
+
+    generate_figure_3(image)
+    generate_figure_4(image)
+    generate_figure_5(image)
+
+    results = perform_parameter_study(image)
+    plot_psnr_vs_h(results)
+    generate_parameter_grid(image)
+
+    print("Done")
+
+if __name__ == "__main__":
+    main()
