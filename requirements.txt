@@ -1,0 +1,14 @@
+# Requirements for NL-means Image Denoising Project
+# COMP 478/6771 Image Processing - Course Project
+#
+# Install with: pip install -r requirements.txt
+
+# Core scientific computing
+numpy>=1.20.0
+
+# Image processing
+scikit-image>=0.19.0
+scipy>=1.7.0
+
+# Visualization
+matplotlib>=3.5.0
