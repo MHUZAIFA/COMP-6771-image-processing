@@ -88,11 +88,10 @@ For Lena image with Gaussian noise (sigma = 20):
 
 | Method              | PSNR (dB) | SSIM   |
 |---------------------|-----------|--------|
-| Gaussian Filter     | 29.34     | 0.8160 |
-| Anisotropic Filter  | 27.20     | 0.6334 |
-| Total Variation     | 22.22     | 0.3672 |
-| Neighborhood Filter | 28.72     | 0.7189 |
-| **NL-means**        | **31.37** | **0.8074** |
+| Gaussian Filter     | 28.83     | 0.7997 |
+| Anisotropic Filter  | 27.12     | 0.6273 |
+| Total Variation     | 22.22     | 0.3724 |
+| **NL-means**        | **31.28** | **0.8006** |
 
 ### Notes
 
