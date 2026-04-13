@@ -21,6 +21,11 @@ def compute_psnr(a, b):
         return 100
     return 10 * math.log10((255**2) / m)
 
+def normalize_for_display(img):
+    img = img - np.min(img)
+    img = img / (np.max(img) + 1e-8)
+    return img
+
 def create_gaussian_kernel(size, sigma):
     ax = np.linspace(-(size//2), size//2, size)
     xx, yy = np.meshgrid(ax, ax)
@@ -28,7 +33,6 @@ def create_gaussian_kernel(size, sigma):
     return k / np.sum(k)
 
 def non_local_means_denoising(image, patch_size, search_window, h, sigma):
-    # core NLM: patch comparison + weighted averaging
     half_patch = patch_size // 2
     half_search = search_window // 2
     padding = half_patch + half_search
@@ -78,7 +82,7 @@ def apply_median_filter(image):
 def apply_bilateral_filter(image):
     return cv2.bilateralFilter(image.astype(np.uint8), 9, 75, 75)
 
-def apply_total_variation_denoising(image, weight=0.1, iterations=50):
+def apply_total_variation_denoising(image, weight=0.02, iterations=20):
     result = image.copy()
     for _ in range(iterations):
         dx = np.roll(result, -1, axis=1) - result
@@ -95,44 +99,46 @@ def apply_total_variation_denoising(image, weight=0.1, iterations=50):
 
     return np.clip(result, 0, 255)
 
-def show(img, title):
+def display_image(img, title):
     plt.imshow(img, cmap='gray')
     plt.title(title)
     plt.axis('off')
 
-def generate_figure_3(image):
+def compare_denoising_on_texture(image):
     noisy = add_gaussian_noise(image, 35)
 
     gauss = apply_gaussian_blur(noisy)
     bilateral = apply_bilateral_filter(noisy)
-    tv = apply_total_variation_denoising(noisy)
     nlm = non_local_means_denoising(noisy, 7, 21, 35, 1)
 
-    plt.figure(figsize=(15,5))
-    imgs = [noisy, gauss, bilateral, tv, nlm]
+    print("PSNR (σ=35)")
+    print("Gaussian:", compute_psnr(image, gauss))
+    print("Bilateral:", compute_psnr(image, bilateral))
+    print("NLM:", compute_psnr(image, nlm))
+
+    imgs = [noisy, gauss, bilateral, nlm]
     titles = ["Noisy", "Gaussian", "Bilateral", "TV", "NLM"]
 
+    plt.figure(figsize=(15,5))
     for i in range(5):
         plt.subplot(1,5,i+1)
-        show(imgs[i], titles[i])
+        display_image(imgs[i], titles[i])
 
-    plt.savefig("figure3.png")
+    plt.savefig("texture_comparison.png")
     plt.close()
 
-def generate_figure_4(image):
+def visualize_method_noise(image):
     noisy = add_gaussian_noise(image, 20)
 
     gauss = apply_gaussian_blur(noisy)
     bilateral = apply_bilateral_filter(noisy)
-    tv = apply_total_variation_denoising(noisy)
     nlm = non_local_means_denoising(noisy, 7, 21, 20, 1)
 
     imgs = [
         image,
-        image - gauss,
-        image - bilateral,
-        image - tv,
-        image - nlm
+        normalize_for_display(image - gauss),
+        normalize_for_display(image - bilateral),
+        normalize_for_display(image - nlm)
     ]
 
     titles = ["Original", "Gaussian", "Bilateral", "TV", "NLM"]
@@ -140,28 +146,32 @@ def generate_figure_4(image):
     plt.figure(figsize=(12,8))
     for i in range(5):
         plt.subplot(2,3,i+1)
-        show(imgs[i], titles[i])
+        display_image(imgs[i], titles[i])
 
-    plt.savefig("figure4.png")
+    plt.savefig("method_noise.png")
     plt.close()
 
-def generate_figure_5(image):
+def compare_denoising_on_image(image):
     noisy = add_gaussian_noise(image, 20)
 
     gauss = apply_gaussian_blur(noisy)
     bilateral = apply_bilateral_filter(noisy)
-    tv = apply_total_variation_denoising(noisy)
     nlm = non_local_means_denoising(noisy, 7, 21, 20, 1)
 
-    imgs = [noisy, gauss, bilateral, tv, nlm]
+    print("\nPSNR (σ=20)")
+    print("Gaussian:", compute_psnr(image, gauss))
+    print("Bilateral:", compute_psnr(image, bilateral))
+    print("NLM:", compute_psnr(image, nlm))
+
+    imgs = [noisy, gauss, bilateral, nlm]
     titles = ["Noisy", "Gaussian", "Bilateral", "TV", "NLM"]
 
     plt.figure(figsize=(12,8))
     for i in range(5):
         plt.subplot(2,3,i+1)
-        show(imgs[i], titles[i])
+        display_image(imgs[i], titles[i])
 
-    plt.savefig("figure5.png")
+    plt.savefig("image_comparison.png")
     plt.close()
 
 def perform_parameter_study(image):
@@ -195,7 +205,7 @@ def plot_psnr_vs_h(results):
     plt.savefig("psnr_vs_h.png")
     plt.close()
 
-def generate_parameter_grid(image):
+def visualize_parameter_effects(image):
     noisy = add_gaussian_noise(image, 20)
 
     patch_sizes = [5,7,9]
@@ -219,13 +229,13 @@ def generate_parameter_grid(image):
 def main():
     image = load_lena()
 
-    generate_figure_3(image)
-    generate_figure_4(image)
-    generate_figure_5(image)
+    compare_denoising_on_texture(image)
+    visualize_method_noise(image)
+    compare_denoising_on_image(image)
 
     results = perform_parameter_study(image)
     plot_psnr_vs_h(results)
-    generate_parameter_grid(image)
+    visualize_parameter_effects(image)
 
     print("Done")
 
